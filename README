@@ -1,0 +1,10 @@
+This is a reproduction of paper A Content-based Recommender System for E-commerce Offers and Coupons by :
+Yandi Xia, Giuseppe Di Fabbrizio, Shikhar Vaibhav, and Ankur Datta
+http://ceur-ws.org/Vol-2311/paper_20.pdf
+
+In order to evaluate the performance of this paper, I'm using Kaggle Competition Coupon Purchase Prediction by Ponpare, Japan's leading joint coupon site.
+https://www.kaggle.com/c/coupon-purchase-prediction/
+
+The latest score i get on Kaggle using Random Forest Classifier is
+Private : 0.00586
+Public  : 0.00619
