@@ -1,0 +1,5 @@
+Evaluation and Dataset can be acquired here :
+https://www.kaggle.com/c/coupon-purchase-prediction/
+
+Private : 0.00586
+Public  : 0.00619
