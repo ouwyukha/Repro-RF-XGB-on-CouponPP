@@ -3,8 +3,8 @@ https://www.kaggle.com/c/coupon-purchase-prediction/
 
 The latest score i get on Kaggle are:
 Random Forest Classifier
-Private : 0.00586
-Public  : 0.00619
+Private : 0.00561
+Public  : 0.00585
 XGBoost
 Private : 0.00154
 Public  : 0.00257
