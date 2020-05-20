@@ -93,8 +93,8 @@ cl_test['DISPEND'] = pd.to_datetime(cl_test['DISPEND'])
 cl_test['VALIDFROM'] = pd.to_datetime(cl_test['VALIDFROM'])
 cl_test['VALIDEND'] = pd.to_datetime(cl_test['VALIDEND'])
 
-cl_train['VALIDPERIOD'].fillna((cl_train['VALIDFROM'] - cl_train['VALIDEND'])/np.timedelta64(1,'D'), inplace=True)
-cl_test['VALIDPERIOD'].fillna((cl_test['VALIDFROM'] - cl_test['VALIDEND'])/np.timedelta64(1,'D'), inplace=True)
+cl_train['VALIDPERIOD'].fillna((cl_train['VALIDEND'] - cl_train['VALIDFROM'])/np.timedelta64(1,'D'), inplace=True)
+cl_test['VALIDPERIOD'].fillna((cl_test['VALIDEND'] - cl_test['VALIDFROM'])/np.timedelta64(1,'D'), inplace=True)
 
 cl_train['VALIDPERIOD'] = cl_train['VALIDPERIOD'].astype(int)
 cl_test['VALIDPERIOD'] = cl_test['VALIDPERIOD'].astype(int)
