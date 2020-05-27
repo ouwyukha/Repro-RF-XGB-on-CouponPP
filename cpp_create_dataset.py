@@ -3,6 +3,8 @@ import os
 import numpy as np
 import itertools
 from tqdm import tqdm
+import joblib
+from geopy.distance import geodesic
 
 tqdm.pandas()
 
@@ -99,9 +101,11 @@ cl_test['VALIDPERIOD'].fillna((cl_test['VALIDEND'] - cl_test['VALIDFROM'])/np.ti
 cl_train['VALIDPERIOD'] = cl_train['VALIDPERIOD'].astype(int)
 cl_test['VALIDPERIOD'] = cl_test['VALIDPERIOD'].astype(int)
 
+#cl_train['VALIDPERIOD'].fillna(180, inplace=True)
+#cl_test['VALIDPERIOD'].fillna(180, inplace=True)
 
-cl_train.fillna(1, inplace=True)
-cl_test.fillna(1, inplace=True)
+cl_train.fillna(-1, inplace=True)
+cl_test.fillna(-1, inplace=True)
 
 user_list.WITHDRAW_DATE.fillna(pd.Timestamp.max, inplace=True)
 user_list.PREF_NAME.fillna(user_list.PREF_NAME.value_counts().index[0], inplace=True)
@@ -112,12 +116,12 @@ user_list['REG_DATE'] = pd.to_datetime(user_list['REG_DATE'])
 cd_train = cd_train[['USER_ID_hash','COUPON_ID_hash','PURCHASEID_hash','I_DATE']]
 
 print('Save CPP_REPRO_cd_train.csv')
-cd_train.to_csv('CPP_REPRO_cd_train.csv',index=False)
+#cd_train.to_csv('CPP_REPRO_cd_train.csv',index=False)
 print('Save CPP_REPRO_user_list.csv')
-user_list.to_csv('CPP_REPRO_user_list.csv',index=False)
+#user_list.to_csv('CPP_REPRO_user_list.csv',index=False)
 
 print('Create Train Data')
-cvdict = cd_train[['USER_ID_hash','COUPON_ID_hash']].groupby('USER_ID_hash')['COUPON_ID_hash'].apply(list)
+cvdict = cd_train[['USER_ID_hash','COUPON_ID_hash']].groupby('USER_ID_hash')['COUPON_ID_hash'].progress_apply(list)
 
 user_list = pd.merge(user_list,pref_loc.drop('PREFECTUAL_OFFICE', axis=1),how='left')
 
@@ -126,16 +130,16 @@ neg_cl_train = cd_train.groupby('PURCHASEID_hash', group_keys=False).progress_ap
 neg_cl_train = pd.merge(neg_cl_train,pref_loc.drop('PREFECTUAL_OFFICE', axis=1),how='left')
 neg_cl_train['TARGET'] = 0
 neg_cl_train = pd.merge(neg_cl_train, user_list, how='left', on='USER_ID_hash', suffixes=('_COUPON', '_USER'))
-print('Save neg_cl_train.csv')
-neg_cl_train.to_csv('neg_cl_train.csv',index=False)
+#print('Save neg_cl_train.csv')
+#neg_cl_train.to_csv('neg_cl_train.csv',index=False)
 
 print('Create pos_cl_train.csv')
 pos_cl_train = cd_train.groupby('PURCHASEID_hash', group_keys=False).progress_apply(findYes)
 pos_cl_train = pd.merge(pos_cl_train,pref_loc.drop('PREFECTUAL_OFFICE', axis=1),how='left')
 pos_cl_train['TARGET'] = 1
 pos_cl_train = pd.merge(pos_cl_train, user_list, how='left', on='USER_ID_hash', suffixes=('_COUPON', '_USER'))
-print('Save pos_cl_train.csv')
-pos_cl_train.to_csv('pos_cl_train.csv', index=False)
+#print('Save pos_cl_train.csv')
+#pos_cl_train.to_csv('pos_cl_train.csv', index=False)
 
 print('Combine both')
 dataset = pd.concat([pos_cl_train, neg_cl_train]).reset_index(drop=True)
@@ -143,8 +147,25 @@ dataset = dataset[['USER_ID_hash', 'COUPON_ID_hash', 'CAPSULE_TEXT', 'GENRE_NAME
 dataset.sort_values('TARGET',inplace=True)
 print('Drop False Negative Data')
 dataset.drop_duplicates(subset=['USER_ID_hash', 'COUPON_ID_hash', 'CAPSULE_TEXT', 'GENRE_NAME', 'PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPFROM', 'DISPEND', 'DISPPERIOD', 'VALIDFROM', 'VALIDEND', 'VALIDPERIOD', 'USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'LATITUDE_COUPON', 'LONGITUDE_COUPON', 'REG_DATE', 'SEX_ID', 'AGE', 'WITHDRAW_DATE', 'PREF_NAME_USER', 'LATITUDE_USER', 'LONGITUDE_USER'], keep='first', inplace=True)
+
+print('issa SAME PREF')
+dataset['SAME_PREF'] = dataset['PREF_NAME_COUPON'] == dataset['PREF_NAME_USER']
+print('LONGITUDE_DIST')
+dataset['LONGITUDE_DIST'] = np.vectorize(np.abs)(dataset.LONGITUDE_COUPON - dataset.LONGITUDE_USER)
+print('LATITUDE_DIST')
+dataset['LATITUDE_DIST'] = np.vectorize(np.abs)(dataset.LATITUDE_COUPON - dataset.LATITUDE_USER)
+print('GEO DIST KM')
+dataset['DIST'] = dataset.progress_apply(lambda x: geodesic((x['LATITUDE_COUPON'],x['LONGITUDE_COUPON']), (x['LATITUDE_USER'],x['LONGITUDE_USER'])).km, axis=1)
+
 print('Save CPP_REPRO_cl_train.csv')
-dataset.to_csv('CPP_REPRO_cl_train.csv', index=False)
+#dataset.to_csv('CPP_REPRO_cl_train.csv', index=False)
+
+dataset[['SEX_ID', 'USER_ID_hash', 'COUPON_ID_hash', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'CAPSULE_TEXT', 'GENRE_NAME', 'PREF_NAME_USER']] = dataset[['SEX_ID', 'USER_ID_hash', 'COUPON_ID_hash', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'CAPSULE_TEXT', 'GENRE_NAME', 'PREF_NAME_USER']].astype('category')
+dataset[['PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPPERIOD', 'VALIDPERIOD', 'AGE']] = dataset[['PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPPERIOD', 'VALIDPERIOD', 'AGE']].astype(np.uint32)
+dataset[['USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY']] = dataset[['USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY']].astype(np.int8)
+dataset[['LATITUDE_USER', 'LONGITUDE_USER', 'LATITUDE_COUPON', 'LONGITUDE_COUPON']] = dataset[['LATITUDE_USER', 'LONGITUDE_USER', 'LATITUDE_COUPON', 'LONGITUDE_COUPON']].astype(np.float64)
+
+joblib.dump(dataset, 'CPP_REPRO_cl_train.pkl')
 
 print('Create Test Data')
 #Permutation of User-CouponTest
@@ -159,6 +180,23 @@ cl_test = pd.merge(relations,cl_test,how='left')
 cl_test = pd.merge(cl_test, user_list, how='left', on='USER_ID_hash', suffixes=('_COUPON', '_USER'))
 cl_test = cl_test[['USER_ID_hash', 'COUPON_ID_hash', 'CAPSULE_TEXT', 'GENRE_NAME', 'PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPFROM', 'DISPEND', 'DISPPERIOD', 'VALIDFROM', 'VALIDEND', 'VALIDPERIOD', 'USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'LATITUDE_COUPON', 'LONGITUDE_COUPON', 'REG_DATE', 'SEX_ID', 'AGE', 'WITHDRAW_DATE', 'PREF_NAME_USER', 'LATITUDE_USER', 'LONGITUDE_USER']]
 #cl_test = cl_test[(cl_test.DISPEND >= cl_test.REG_DATE) & (cl_test.DISPFROM <= cl_test.WITHDRAW_DATE)]
+
+print('issa SAME PREF')
+cl_test['SAME_PREF'] = cl_test['PREF_NAME_COUPON'] == cl_test['PREF_NAME_USER']
+print('LONGITUDE_DIST')
+cl_test['LONGITUDE_DIST'] = np.vectorize(np.abs)(cl_test.LONGITUDE_COUPON - cl_test.LONGITUDE_USER)
+print('LATITUDE_DIST')
+cl_test['LATITUDE_DIST'] = np.vectorize(np.abs)(cl_test.LATITUDE_COUPON - cl_test.LATITUDE_USER)
+print('GEO DIST KM')
+cl_test['DIST'] = cl_test.progress_apply(lambda x: geodesic((x['LATITUDE_COUPON'],x['LONGITUDE_COUPON']), (x['LATITUDE_USER'],x['LONGITUDE_USER'])).km, axis=1)
+
 print('Save CPP_REPRO_cl_test.csv')
-cl_test.to_csv('CPP_REPRO_cl_test.csv', index=False)
+#cl_test.to_csv('CPP_REPRO_cl_test.csv', index=False)
+
+cl_test[['SEX_ID', 'USER_ID_hash', 'COUPON_ID_hash', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'CAPSULE_TEXT', 'GENRE_NAME', 'PREF_NAME_USER']] = cl_test[['SEX_ID', 'USER_ID_hash', 'COUPON_ID_hash', 'LARGE_AREA_NAME', 'PREF_NAME_COUPON', 'SMALL_AREA_NAME', 'CAPSULE_TEXT', 'GENRE_NAME', 'PREF_NAME_USER']].astype('category')
+cl_test[['PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPPERIOD', 'VALIDPERIOD', 'AGE']] = cl_test[['PRICE_RATE', 'CATALOG_PRICE', 'DISCOUNT_PRICE', 'DISPPERIOD', 'VALIDPERIOD', 'AGE']].astype(np.uint32)
+cl_test[['USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY']] = cl_test[['USABLE_DATE_MON', 'USABLE_DATE_TUE','USABLE_DATE_WED', 'USABLE_DATE_THU', 'USABLE_DATE_FRI', 'USABLE_DATE_SAT', 'USABLE_DATE_SUN', 'USABLE_DATE_HOLIDAY', 'USABLE_DATE_BEFORE_HOLIDAY']].astype(np.int8)
+cl_test[['LATITUDE_USER', 'LONGITUDE_USER', 'LATITUDE_COUPON', 'LONGITUDE_COUPON']] = cl_test[['LATITUDE_USER', 'LONGITUDE_USER', 'LATITUDE_COUPON', 'LONGITUDE_COUPON']].astype(np.float64)
+
+joblib.dump(cl_test, 'CPP_REPRO_cl_test.pkl')
 

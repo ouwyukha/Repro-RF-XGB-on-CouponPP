@@ -10,8 +10,7 @@ https://github.com/ouwyukha/TranslatorKit-of-Coupon-Purchase-Prediction-Ponpare
 
 The latest score i get on Kaggle are:
 Random Forest Classifier
-Private : 0.00561
-Public  : 0.00585
+Private : 0.00585 	|	Public : 0.00584
+
 XGBoost
-Private : 0.00471
-Public  : 0.00488
+Private : 0.00535 	|	Public : 0.00593
